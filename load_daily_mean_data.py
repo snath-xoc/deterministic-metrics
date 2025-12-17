@@ -20,7 +20,7 @@ ICPAC_climate_data_file = "/Users/cooperf/Documents/WFP/data/WRF_ICPAC_1981-2010
 # Returns the number of days in a given month
 def num_days_in_month(year,month):
     if (month < 12):
-        days_this_month = (datetime(year, month+1, 1) - datetime(year, month, 1)).days
+        days_this_month = 1#(datetime(year, month+1, 1) - datetime(year, month, 1)).days
     else:
         days_this_month = (datetime(year+1, 1, 1) - datetime(year, month, 1)).days
     return days_this_month
@@ -291,41 +291,12 @@ def load_daily_mean_IMERG_by_month_simplified(
 ):
     
     # Load the IMERG data for this month
-    file_name = f"{data_dir}/IMERGv6L_Kenya_{year}.nc"
-    nc_file = nc.Dataset(file_name)
-    latitude_IMERG = np.array(nc_file["latitude"][:])
-    longitude_IMERG = np.array(nc_file["longitude"][:])
-    time_IMERG = np.array(nc_file["time"][:])
-
-    # Have we found the forst day of the month yet?
-    start_time_found = False
-
-    # Find the start and end time indices for this month
-    for i in range(len(time_IMERG)):
-
-        # Convert to datetime format
-        d = datetime(1970,1,1) + timedelta(seconds=int(time_IMERG[i]))
-
-        # If this is the first day from this month
-        if (d.month == month) and (start_time_found == False):
-            start_time_idx = i
-            start_time_found = True
-
-        # If this is the first day of the next month
-        if (d.month == month+1):
-            end_time_idx = i
-            break
-
-        # If we are at the end of the file and haven't found the last date yet
-        if (i == len(time_IMERG) - 1):
-            end_time_idx = len(time_IMERG)
-
-    precip_IMERG = np.array(nc_file["precipitation"][start_time_idx:end_time_idx,:,:])
-    nc_file.close()
-
-    # Number of days loaded
-    days_this_month = end_time_idx - start_time_idx
-
+    files = f"{data_dir}/{year}/{year}{month:02d}*.nc"
+    nc_file = xr.open_mfdataset(files)
+    latitude_IMERG = nc_file.latitude.values
+    longitude_IMERG = nc_file.longitude.values
+    time_IMERG = nc_file.time.values
+    daily_precip_IMERG = nc_file
     if mask is not None:
         # Create the correct size mask for the IMERG data
         daily_precip_IMERG_mask = np.repeat(
@@ -556,7 +527,7 @@ def load_daily_mean_cGAN_by_month(year,                # Year to load
 
     # Load full latitude and longitude from the first file
     d = d_start
-    file_name = f"{data_dir}/GAN_{d.year}{d.month:02d}{d.day:02d}.nc"
+    file_name = f"{data_dir}/GAN_{d.year}{d.month:02d}{d.day:02d}_00Z.nc"
     nc_file = nc.Dataset(file_name)
     latitude_cGAN = np.array(nc_file["latitude"][:])
     longitude_cGAN = np.array(nc_file["longitude"][:])
@@ -597,7 +568,7 @@ def load_daily_mean_cGAN_by_month(year,                # Year to load
         # Make the forecasts days line up more closely
         dl = d - timedelta(days=lead_time_offset//24)
         
-        file_name = f"{data_dir}/GAN_{dl.year}{dl.month:02d}{dl.day:02d}.nc"
+        file_name = f"{data_dir}/GAN_{dl.year}{dl.month:02d}{dl.day:02d}_00Z.nc"
         # XXX temporary remove (forecast is running)
         if (dl == datetime(2024,4,24)):
             file_name = f"{data_dir}/GAN_{dl.year}{dl.month:02d}{dl.day:02d}_ens50.nc"
@@ -612,7 +583,7 @@ def load_daily_mean_cGAN_by_month(year,                # Year to load
         # Check that we have the correct dates
         if (dl != datetime(1900,1,1) + timedelta(hours=int(time_cGAN))):
             print(f"ERROR: Times don't match in {file_name}")
-        for lead_days in range(num_lead_days):
+        for lead_days in range(1,num_lead_days+1):
             if (dl + timedelta(hours=lead_days*24 + lead_time_offset) != datetime(1900,1,1) +
                     timedelta(hours=int(valid_time_cGAN[lead_days]))):
                 print(f"ERROR: Valid times don't match in {file_name}")
@@ -658,7 +629,7 @@ def load_daily_mean_cGAN_by_month(year,                # Year to load
         daily_precip_cGAN = ma.masked_array(daily_precip_cGAN, mask=daily_precip_cGAN_mask)
 
     # XXX Should probably return an xarray dataset instead
-    return daily_precip_cGAN
+    return daily_precip_cGAN, valid_time_test_all
 
 
 # Load daily mean KMD-WRF data for one month (returns mm/day)
