@@ -20,7 +20,7 @@ ICPAC_climate_data_file = "/Users/cooperf/Documents/WFP/data/WRF_ICPAC_1981-2010
 # Returns the number of days in a given month
 def num_days_in_month(year,month):
     if (month < 12):
-        days_this_month = 1#(datetime(year, month+1, 1) - datetime(year, month, 2)).days
+        days_this_month = 3#(datetime(year, month+1, 1) - datetime(year, month, 2)).days
     else:
         days_this_month = (datetime(year+1, 1, 1) - datetime(year, month, 1)).days
     return days_this_month
