@@ -534,7 +534,7 @@ def load_daily_mean_cGAN_by_month(year,                # Year to load
 
     # Load full latitude and longitude from the first file
     d = d_start
-    file_name = f"{data_dir}/GAN_{d.year}{d.month:02d}{d.day-1:02d}_00Z.nc"
+    file_name = glob.glob(f"{data_dir}/GAN*_{d.year}{d.month:02d}{d.day-1:02d}_00Z.nc")[0]
     nc_file = nc.Dataset(file_name)
     latitude_cGAN = np.array(nc_file["latitude"][:])
     longitude_cGAN = np.array(nc_file["longitude"][:])
