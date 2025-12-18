@@ -20,7 +20,7 @@ ICPAC_climate_data_file = "/Users/cooperf/Documents/WFP/data/WRF_ICPAC_1981-2010
 # Returns the number of days in a given month
 def num_days_in_month(year,month):
     if (month < 12):
-        days_this_month = 1#(datetime(year, month+1, 1) - datetime(year, month, 1)).days
+        days_this_month = 1#(datetime(year, month+1, 1) - datetime(year, month, 2)).days
     else:
         days_this_month = (datetime(year+1, 1, 1) - datetime(year, month, 1)).days
     return days_this_month
@@ -292,11 +292,12 @@ def load_daily_mean_IMERG_by_month_simplified(
     
     # Load the IMERG data for this month
     files = f"{data_dir}/{year}/{year}{month:02d}*.nc"
-    nc_file = xr.open_mfdataset(files)
+    nc_file = xr.open_mfdataset(files).sortby('time')
     latitude_IMERG = nc_file.latitude.values
     longitude_IMERG = nc_file.longitude.values
-    time_IMERG = nc_file.time.values
-    daily_precip_IMERG = nc_file
+    time_IMERG = nc_file.time.values[1:-3].reshape(-1,4)[:,0]
+    daily_precip_IMERG = np.mean(nc_file.precipitation.values[1:-3].reshape(-1,4,384,352),axis=1)*24
+    
     if mask is not None:
         # Create the correct size mask for the IMERG data
         daily_precip_IMERG_mask = np.repeat(
@@ -306,7 +307,13 @@ def load_daily_mean_IMERG_by_month_simplified(
         # Create a masked array
         daily_precip_IMERG = ma.masked_array(precip_IMERG, mask=daily_precip_IMERG_mask)
         
-    return daily_precip_IMERG
+    return xr.DataArray(daily_precip_IMERG, dims = ['time','latitude', 'longitude'],
+                        coords = {\
+                            'time':time_IMERG,
+                            'latitude':latitude_IMERG,
+                            'longitude':longitude_IMERG,
+                        }
+                       )
 
 
 # Load daily mean IFS data for one month (returns mm/day)
@@ -523,11 +530,11 @@ def load_daily_mean_cGAN_by_month(year,                # Year to load
                                   mask=None):          # A mask: True where data is missing, False otherwise
 
     # The start of the month
-    d_start = datetime(year,month,1)
+    d_start = datetime(year,month,2)
 
     # Load full latitude and longitude from the first file
     d = d_start
-    file_name = f"{data_dir}/GAN_{d.year}{d.month:02d}{d.day:02d}_00Z.nc"
+    file_name = f"{data_dir}/GAN_{d.year}{d.month:02d}{d.day-1:02d}_00Z.nc"
     nc_file = nc.Dataset(file_name)
     latitude_cGAN = np.array(nc_file["latitude"][:])
     longitude_cGAN = np.array(nc_file["longitude"][:])
@@ -583,9 +590,9 @@ def load_daily_mean_cGAN_by_month(year,                # Year to load
         # Check that we have the correct dates
         if (dl != datetime(1900,1,1) + timedelta(hours=int(time_cGAN))):
             print(f"ERROR: Times don't match in {file_name}")
-        for lead_days in range(1,num_lead_days+1):
-            if (dl + timedelta(hours=lead_days*24 + lead_time_offset) != datetime(1900,1,1) +
-                    timedelta(hours=int(valid_time_cGAN[lead_days]))):
+        for lead_days in range(num_lead_days):
+            if (dl + timedelta(hours=lead_days*24+lead_time_offset) != datetime(1900,1,1) +
+                    timedelta(hours=int(valid_time_cGAN[lead_days+1]))):
                 print(f"ERROR: Valid times don't match in {file_name}")
 
         # Save the precipitation for later
@@ -598,23 +605,24 @@ def load_daily_mean_cGAN_by_month(year,                # Year to load
             if (d_valid >= d_start) and (d_valid < d_start + timedelta(days=days_this_month)):
                 
                 # Save for further analysis
-                if (full_day_data):  # Data is averaged over 24h periods
-                    daily_precip_cGAN[d_valid.day-1,lead_days,:,:] = precip_cGAN[lead_days,:,:]
-                    valid_time_test_all[d_valid.day-1,lead_days] = valid_time_cGAN[lead_days]
+                if (full_day_data):  # Data is averaged over 24h periods since we start on the second on the month we subtract 2
+                    daily_precip_cGAN[d_valid.day-2,lead_days,:,:] = precip_cGAN[lead_days+1,:,:]# idx 0 is valid at 6h, we want idx 1 (30h)
+                    valid_time_test_all[d_valid.day-2,lead_days] = valid_time_cGAN[lead_days+1]
 
                 else:  # Data is averaged over 6h periods
                     daily_precip_cGAN[d_valid.day-1,lead_days,:,:] = np.mean(precip_cGAN[lead_days*4:lead_days*4+4,:,:], axis=0)
-                    valid_time_test_all[d_valid.day-1,lead_days] = valid_time_cGAN[lead_days*4]
+                    valid_time_test_all[d_valid.day-1,lead_days] = valid_time_cGAN[lead_days]
                     
         # Move to the next date
         d += timedelta(days=1)
 
     # Check that we have the correct valid times for each day
-    for day in range(1,days_this_month+1):
+    for day in range(2,days_this_month+1):
         for lead_days in range(num_lead_days):
-            d1 = datetime(1900,1,1) + timedelta(hours=int(valid_time_test_all[day-1,lead_days]))
+            d1 = datetime(1900,1,1) + timedelta(hours=int(valid_time_test_all[day-2,lead_days]))
             d2 = datetime(year,month,day) + timedelta(hours=int(np.mod(lead_time_offset,24)))
             if (d1 != d2):
+                print(d1,d2)
                 print(f"ERROR: Dates do not line up on {d2}")
 
     if mask is not None:
