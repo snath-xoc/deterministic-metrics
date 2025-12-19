@@ -292,7 +292,7 @@ def load_daily_mean_IMERG_by_month_simplified(
 ):
     
     # Load the IMERG data for this month
-    files = f"{data_dir}/{year}/{year}{month:02d}*.nc"
+    files = f"{data_dir}/{year}{month:02d}*.nc"
     nc_file = xr.open_mfdataset(files).sortby('time')
     latitude_IMERG = nc_file.latitude.values
     longitude_IMERG = nc_file.longitude.values
@@ -608,7 +608,7 @@ def load_daily_mean_cGAN_by_month(year,                # Year to load
                 
                 # Save for further analysis
                 if (full_day_data):  # Data is averaged over 24h periods since we start on the second on the month we subtract 2
-                    daily_precip_cGAN[d_valid.day-2,lead_days,:,:] = precip_cGAN[lead_days+1,:,:]*24# idx 0 is valid at 6h, we want idx 1 (30h)
+                    daily_precip_cGAN[d_valid.day-2,lead_days,:,:] = precip_cGAN[lead_days+1,:,:]# idx 0 is valid at 6h, we want idx 1 (30h)
                     valid_time_test_all[d_valid.day-2,lead_days] = valid_time_cGAN[lead_days+1]
 
                 else:  # Data is averaged over 6h periods
