@@ -575,14 +575,19 @@ def load_daily_mean_cGAN_by_month(year,                # Year to load
 
         # Make the forecasts days line up more closely
         dl = d - timedelta(days=lead_time_offset//24)
-        file_name = glob.glob(f"{data_dir}/GAN_*{dl.year}{dl.month:02d}{dl.day:02d}_00Z.nc")[0]
-        nc_file = nc.Dataset(file_name)
-        time_cGAN = np.array(nc_file["time"][0])
-        valid_time_cGAN = np.array(nc_file["fcst_valid_time"][0,:])
-        precip_cGAN = np.mean(
-            np.array(nc_file["precipitation"][0,:,:,min_lat_idx:max_lat_idx,min_lon_idx:max_lon_idx]),
-            axis=0) * 24  # Convert mm/h to mm/day
-        nc_file.close()
+        try:
+            file_name = glob.glob(f"{data_dir}/GAN_*{dl.year}{dl.month:02d}{dl.day:02d}_00Z.nc")[0]
+            nc_file = nc.Dataset(file_name)
+            time_cGAN = np.array(nc_file["time"][0])
+            valid_time_cGAN = np.array(nc_file["fcst_valid_time"][0,:])
+            precip_cGAN = np.mean(
+                np.array(nc_file["precipitation"][0,:,:,min_lat_idx:max_lat_idx,min_lon_idx:max_lon_idx]),
+                axis=0) * 24  # Convert mm/h to mm/day
+            nc_file.close()
+        except IndexError:
+            print(f"WARNING: Missing cGAN file for {dl}, skipping.")
+            d += timedelta(days=1)
+            continue
         
         # Check that we have the correct dates
         if (dl != datetime(1900,1,1) + timedelta(hours=int(time_cGAN))):
