@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 import xesmf as xe
 import xarray as xr
 import os.path
+import glob
 
 Ethiopia_mask_file_name = "/Users/cooperf/Documents/WFP/data/IMERG/ICPAC_region/Ethiopia_state_masks_for_IMERG.nc"
 Kenya_mask_file_name = "/Users/cooperf/Documents/WFP/data/IMERG/ICPAC_region/Kenya_county_masks_for_IMERG.nc"
@@ -534,7 +535,7 @@ def load_daily_mean_cGAN_by_month(year,                # Year to load
 
     # Load full latitude and longitude from the first file
     d = d_start
-    file_name = glob.glob(f"{data_dir}/GAN*_{d.year}{d.month:02d}{d.day-1:02d}_00Z.nc")[0]
+    file_name = glob.glob(f"{data_dir}/GAN_*{d.year}{d.month:02d}{d.day-1:02d}_00Z.nc")[0]
     nc_file = nc.Dataset(file_name)
     latitude_cGAN = np.array(nc_file["latitude"][:])
     longitude_cGAN = np.array(nc_file["longitude"][:])
@@ -574,11 +575,7 @@ def load_daily_mean_cGAN_by_month(year,                # Year to load
 
         # Make the forecasts days line up more closely
         dl = d - timedelta(days=lead_time_offset//24)
-        
-        file_name = f"{data_dir}/GAN_{dl.year}{dl.month:02d}{dl.day:02d}_00Z.nc"
-        # XXX temporary remove (forecast is running)
-        if (dl == datetime(2024,4,24)):
-            file_name = f"{data_dir}/GAN_{dl.year}{dl.month:02d}{dl.day:02d}_ens50.nc"
+        file_name = glob.glob(f"{data_dir}/GAN_*{dl.year}{dl.month:02d}{dl.day:02d}_00Z.nc")[0]
         nc_file = nc.Dataset(file_name)
         time_cGAN = np.array(nc_file["time"][0])
         valid_time_cGAN = np.array(nc_file["fcst_valid_time"][0,:])
@@ -606,7 +603,7 @@ def load_daily_mean_cGAN_by_month(year,                # Year to load
                 
                 # Save for further analysis
                 if (full_day_data):  # Data is averaged over 24h periods since we start on the second on the month we subtract 2
-                    daily_precip_cGAN[d_valid.day-2,lead_days,:,:] = precip_cGAN[lead_days+1,:,:]# idx 0 is valid at 6h, we want idx 1 (30h)
+                    daily_precip_cGAN[d_valid.day-2,lead_days,:,:] = precip_cGAN[lead_days+1,:,:]*24# idx 0 is valid at 6h, we want idx 1 (30h)
                     valid_time_test_all[d_valid.day-2,lead_days] = valid_time_cGAN[lead_days+1]
 
                 else:  # Data is averaged over 6h periods
